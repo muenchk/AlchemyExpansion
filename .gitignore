@@ -1,0 +1,47 @@
+build/
+buildvr/
+buildAE353/
+buildSE/
+buildAE/
+.vs/
+src/.vs/
+src/.vscode
+src/out
+src/TODO.txt
+src/Changelog.txt
+startenv.bat
+startenvlaptop.bat
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+/tmp.txt
