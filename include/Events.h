@@ -13,7 +13,8 @@ namespace Events
 		public RE::BSTEventSink<RE::TESEquipEvent>,
 		public RE::BSTEventSink<RE::TESFormDeleteEvent>,
 		public RE::BSTEventSink<RE::TESContainerChangedEvent>,
-		public RE::BSTEventSink<RE::TESHarvestedEvent::ItemHarvested>
+		public RE::BSTEventSink<RE::TESHarvestedEvent::ItemHarvested>,
+		public RE::BSTEventSink<RE::TESActivateEvent>
 	{
 	public:
 		/// <summary>
@@ -93,6 +94,13 @@ namespace Events
 		/// <param name="a_eventSource"></param>
 		/// <returns></returns>
 		virtual EventResult ProcessEvent(const RE::TESHarvestedEvent::ItemHarvested* a_event, RE::BSTEventSource<RE::TESHarvestedEvent::ItemHarvested>* a_eventSource) override;
+		/// <summary>
+		/// EventHandler for Activation Events
+		/// </summary>
+		/// <param name="a_event"></param>
+		/// <param name="a_eventSource"></param>
+		/// <returns></returns>
+		virtual EventResult ProcessEvent(const RE::TESActivateEvent* a_event, RE::BSTEventSource<RE::TESActivateEvent>* a_eventSource) override;
 
 	private:
 		EventHandler() = default;

@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 #include "AlchemyEffect.h"
+#include "Misc.h"
 
 class Data
 {
@@ -23,6 +24,21 @@ private:
 	/// datahandler
 	/// </summary>
 	RE::TESDataHandler* datahandler = nullptr;
+
+	/// <summary>
+	/// time the player last activated a mine
+	/// </summary>
+	std::chrono::system_clock::time_point lastMineActivated;
+
+	/// <summary>
+	/// map that contains all effects to be modified
+	/// </summary>
+	std::unordered_map<std::string, Effect*> effectMap;
+
+	/// <summary>
+	/// map that contains all ingredients to be modified
+	/// </summary>
+	std::unordered_map<RE::FormID, Ingredient*> ingredientMap;
 
 public:
 	/// <summary>
@@ -78,4 +94,25 @@ public:
 	/// </summary>
 	/// <param name="actor"></param>
 	void DeleteFormCustom(RE::FormID actorid);
+
+	/// <summary>
+	/// Updates the time a player last activated a mine
+	/// </summary>
+	void UpdateLastMineActivatedTime();
+	/// <summary>
+	/// Returns the time a player last activated a mine
+	/// </summary>
+	/// <returns></returns>
+	std::chrono::system_clock::time_point GetLastMineActivatedTime();
+
+	/// <summary>
+	/// Returns the map that stores all alchemy effects to be modified
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<std::string, Effect*>* GetEffectMap() { return &effectMap; }
+	/// <summary>
+	/// Returns the map that stores all ingredients to be modified
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<RE::FormID, Ingredient*>* GetIngredientMap() { return &ingredientMap; }
 }; 

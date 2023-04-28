@@ -260,6 +260,28 @@ std::string Utility::ToString(AlchemyEffectBase ae)
 	return ret;
 }
 
+std::vector<std::string> Utility::SplitString(std::string str, char delimiter, bool removeEmpty)
+{
+	std::vector<std::string> splits;
+	size_t pos = str.find(delimiter);
+	while (pos != std::string::npos) {
+		splits.push_back(str.substr(0, pos));
+		str.erase(0, pos + 1);
+		pos = str.find(delimiter);
+	}
+	if (str.length() != 0)
+		splits.push_back(str);
+	if (removeEmpty) {
+		auto itr = splits.begin();
+		while (itr != splits.end()) {
+			if (*itr == "")
+				splits.erase(itr);
+			itr++;
+		}
+	}
+	return splits;
+}
+
 std::string Utility::ToStringCombatStyle(uint32_t style)
 {
 	std::string flags = "|";
@@ -878,6 +900,134 @@ RE::TESForm* Utility::GetTESForm(RE::TESDataHandler* datahandler, RE::FormID for
 		tmp = RE::TESForm::LookupByEditorID(std::string_view{ editorid });
 	}
 	return tmp;
+}
+
+std::vector<std::tuple<AssocType, RE::FormID>> Utility::ParseAssocObjects(std::string input, bool& error, std::string file, std::string line, int& totalobjects)
+{
+	LOG_3("{}[Utility] [ParseAssocObjects]");
+	std::vector<std::tuple<AssocType, RE::FormID>> ret;
+	try {
+		auto datahandler = RE::TESDataHandler::GetSingleton();
+		size_t pos;
+		AssocType type = AssocType::kActor;
+		uint32_t formid = 0;
+		bool form = false;
+		bool valid = false;
+		std::string editorid;
+		RE::TESForm* tmp = nullptr;
+		std::string pluginname;
+		while (input.empty() == false) {
+			form = false;
+			valid = false;
+			pluginname = "";
+			input.erase(0, input.find('<') + 1);
+			if ((pos = input.find('>')) != std::string::npos) {
+				// we have a valid entry, probably
+				totalobjects++;
+				std::string entry = input.substr(0, pos);
+				input.erase(0, pos + 1);
+				// parse form or editor id
+				if ((pos = entry.find(',')) == std::string::npos) {
+					error = true;
+					return ret;
+				}
+				try {
+					formid = static_cast<uint32_t>(std::stol(entry.substr(0, pos), nullptr, 16));
+					form = true;
+				} catch (std::exception&) {
+				}
+				editorid = entry.substr(0, pos);
+				entry.erase(0, pos + 1);
+				pluginname = entry;
+				if (pluginname.size() != 0) {
+					if (form) {
+						tmp = datahandler->LookupForm(formid, std::string_view{ pluginname });
+						if (tmp == nullptr) {
+							tmp = RE::TESForm::LookupByEditorID(std::string_view{ editorid });
+						}
+					} else {
+						tmp = RE::TESForm::LookupByEditorID(std::string_view{ editorid });
+					}
+					// else we cannot find what we were lookin for
+				} else {
+					// pluginname is not given, so try to find the form by the id itself
+					tmp = RE::TESForm::LookupByID(formid);
+				}
+				// check wether form has a correct type
+				if (tmp != nullptr) {
+					type = MatchValidFormType(tmp->GetFormType(), valid);
+					if (valid) {
+						ret.push_back({ type, tmp->GetFormID() });
+					} else {
+						logwarn("[Utility] [ParseAssocObjects] Form {} has an unsupported FormType. file: \"{}\" Rule: \"{}\"", PrintForm(tmp), file, line);
+					}
+				} else {
+					if (form) {
+						logwarn("[Utility] [ParseAssocObjects] FormID {} couldn't be found. file: \"{}\" Rule: \"\"", GetHex(formid), file, line);
+					} else {
+						logwarn("[Utility] [ParseAssocObjects] EditorID {} couldn't be found. file: \"{}\" Rule: \"\"", editorid, file, line);
+					}
+				}
+			} else {
+				// invalid input return what we parsed so far and set error
+				error = true;
+				return ret;
+			}
+		}
+	} catch (std::exception&) {
+		// we have a malformed input so return
+		error = true;
+		return ret;
+	}
+	return ret;
+}
+
+AssocType Utility::MatchValidFormType(RE::FormType type, bool& valid)
+{
+	switch (type) {
+	case RE::FormType::Keyword:
+		valid = true;
+		return AssocType::kKeyword;
+	case RE::FormType::Faction:
+		valid = true;
+		return AssocType::kFaction;
+	case RE::FormType::Race:
+		valid = true;
+		return AssocType::kRace;
+	case RE::FormType::NPC:
+		valid = true;
+		return AssocType::kNPC;
+	case RE::FormType::ActorCharacter:
+		valid = true;
+		return AssocType::kActor;
+	case RE::FormType::Reference:
+		valid = true;
+		return AssocType::kItem;
+	case RE::FormType::Class:
+		valid = true;
+		return AssocType::kClass;
+	case RE::FormType::CombatStyle:
+		valid = true;
+		return AssocType::kCombatStyle;
+	case RE::FormType::AlchemyItem:
+	case RE::FormType::Spell:
+	case RE::FormType::Scroll:
+	case RE::FormType::Armor:
+	case RE::FormType::Book:
+	case RE::FormType::Ingredient:
+	case RE::FormType::Misc:
+	case RE::FormType::Weapon:
+	case RE::FormType::Ammo:
+	case RE::FormType::SoulGem:
+		valid = true;
+		return AssocType::kItem;
+	case RE::FormType::MagicEffect:
+		valid = true;
+		return AssocType::kEffectSetting;
+	default:
+		valid = false;
+		return AssocType::kKeyword;
+	}
 }
 
 std::vector<std::tuple<uint64_t, float>> Utility::ParseAlchemyEffects(std::string input, bool& error)

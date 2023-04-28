@@ -11,6 +11,19 @@
 
 #define Base(x) static_cast<uint64_t>(x)
 
+enum AssocType
+{
+	kKeyword = 1,
+	kFaction = 2,
+	kRace = 4,
+	kActor = 8,
+	kNPC = 16,
+	kItem = 32,
+	kClass = 64,
+	kCombatStyle = 128,
+	kEffectSetting = 256,
+};
+
 /// <summary>
 /// Provides generic functions
 /// </summary>
@@ -121,6 +134,14 @@ public:
 	static std::string ToString(AlchemyEffectBase ae);
 
 	/// <summary>
+	/// Splits a string at a delimiter and optionally removes empty results
+	/// </summary>
+	/// <param name="delimiter"></param>
+	/// <param name="removeEmpty"></param>
+	/// <returns></returns>
+	static std::vector<std::string> SplitString(std::string str, char delimiter, bool removeEmpty = false);
+
+	/// <summary>
 	/// The current combat style of an actor
 	/// </summary>
 	enum class CurrentCombatStyle
@@ -200,6 +221,24 @@ public:
 	/// <param name="editorid">editorid of the item, defaults to empty string</param>
 	/// <returns></returns>
 	static RE::TESForm* GetTESForm(RE::TESDataHandler* datahandler, RE::FormID formid, std::string pluginname, std::string editorid = "");
+
+	/// <summary>
+	/// Parses objects for distribution rules from a string input
+	/// </summary>
+	/// <param name="input">the string to parse</param>
+	/// <param name="error">will be overwritten with [true] if an error occurs</param>
+	/// <param name="file">the relative path of the file that contains the string</param>
+	/// <param name="line">the line in the file that contains the string</param>
+	/// <returns>a vector of parsed and validated objects</returns>
+	static std::vector<std::tuple<AssocType, RE::FormID>> ParseAssocObjects(std::string input, bool& error, std::string file, std::string line, int& totalobjects);
+
+	/// <summary>
+	/// Returns an AssocType for the given RE::FormType. If the RE::FormType is not supported, [valid] is set to true
+	/// </summary>
+	/// <param name="type">RE::FormType to convert</param>
+	/// <param name="valid">Overridable value, which is set to true if [type] is not supported.</param>
+	/// <returns>AssocType associated with [type]</returns>
+	static AssocType MatchValidFormType(RE::FormType type, bool& valid);
 
 	/// <summary>
 	/// Parses AlchemyEffects from an input string.

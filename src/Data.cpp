@@ -92,3 +92,13 @@ void Data::DeleteFormCustom(RE::FormID formid)
 	}
 	lockdata.release();
 }
+
+void Data::UpdateLastMineActivatedTime()
+{
+	lastMineActivated = std::chrono::system_clock::now();
+}
+
+std::chrono::system_clock::time_point Data::GetLastMineActivatedTime()
+{
+	return lastMineActivated;
+}

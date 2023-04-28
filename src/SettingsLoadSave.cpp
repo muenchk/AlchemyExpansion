@@ -7,7 +7,7 @@ using Comp = Compatibility;
 
 void Settings::Load()
 {
-	constexpr auto path = L"Data/SKSE/Plugins/NPCsUsePotions.ini";
+	constexpr auto path = L"Data/SKSE/Plugins/AlchemyExpansion.ini";
 
 	bool Ultimateoptions = false;
 
@@ -59,7 +59,7 @@ void Settings::Load()
 
 void Settings::Save()
 {
-	constexpr auto path = L"Data/SKSE/Plugins/NPCsUsePotions.ini";
+	constexpr auto path = L"Data/SKSE/Plugins/AlchemyExpansion.ini";
 
 	CSimpleIniA ini;
 

@@ -297,6 +297,35 @@ namespace Events
 	}
 
 	/// <summary>
+	/// EventHandler for Activation Events
+	/// </summary>
+	/// <param name="a_event">event parameters like the actor we need to handle</param>
+	/// <param name=""></param>
+	/// <returns></returns>
+	EventResult EventHandler::ProcessEvent(const RE::TESActivateEvent* a_event, RE::BSTEventSource<RE::TESActivateEvent>*)
+	{
+		EvalProcessingEvent();
+		if (a_event && a_event->actionRef.get() && a_event->objectActivated.get()) {
+			RE::TESObjectREFR* refr = a_event->objectActivated.get();
+			RE::TESBoundObject* base = refr->GetBaseObject();
+			RE::TESObjectACTI* baseactivator = base->As<RE::TESObjectACTI>();
+			RE::TESObjectREFR* activator = a_event->actionRef.get();
+
+			if (baseactivator) {
+				if (Configuration::baseObjectMines()->contains(baseactivator->GetFormID())) {
+					// we found a mine, reset timer for last time a mine was accessed, if and only if the player is 
+					// the activator
+					if (activator->IsPlayerRef()) {
+						data->UpdateLastMineActivatedTime();
+					}
+				}
+			}
+		}
+
+		return EventResult::kContinue;
+	}
+
+	/// <summary>
 	/// Handles an item being removed from a container
 	/// </summary>
 	/// <param name="container">The container the item was removed from</param>
@@ -330,7 +359,39 @@ namespace Events
 		LOG2_1("{}[Events] [OnItemAddedEvent] {} added to {}", Utility::PrintForm(baseObj), Utility::PrintForm(container));
 		RE::Actor* actor = container->As<RE::Actor>();
 		if (Utility::ValidateActor(actor)) {
+			if (actor->IsPlayerRef()) {
 
+
+				// the assumption is that if an ore is added to the player without a source container, than
+				// they have mined the ore
+				// as additional restriction, this only applied if the last activation of a mine, has been
+				// less than 15 seconds ago
+				if (Configuration::oreMap()->contains(baseObj->GetFormID()) && data->GetLastMineActivatedTime() - std::chrono::system_clock::now() > -15s) {
+					// get vector with entries to give
+					auto itr = Configuration::oreMap()->find(baseObj->GetFormID());
+					if (itr != Configuration::oreMap()->end()) {
+						auto vec = itr->second;
+						auto iter = vec.begin();
+						while (iter != vec.end()) {
+							if (*iter == nullptr) {
+								// error item not valid, clean up vector
+								iter = vec.erase(iter);
+								Configuration::oreMap()->insert_or_assign(baseObj->GetFormID(), vec);
+							} else if ((*iter)->object == nullptr) {
+								delete *iter;
+								Configuration::oreMap()->insert_or_assign(baseObj->GetFormID(), vec);
+							} else {
+								for (int x = 0; x < (*iter)->num; x++) {
+									if (rand100(rand) < (*iter)->chance) {
+										container->AddObjectToContainer((*iter)->object, nullptr, 1, nullptr);
+									}
+								}
+							}
+							iter++;
+						}
+					}
+				}
+			}
 		}
 		
 		// handle event for generic objects
@@ -387,9 +448,7 @@ namespace Events
 					} else {
 						for (int x = 0; x < (*iter)->num; x++) {
 							if (rand100(rand) < (*iter)->chance) {
-								RE::ExtraDataList* extra = new RE::ExtraDataList();
-								extra->SetOwner(a_event->harvester);
-								a_event->harvester->AddObjectToContainer((*iter)->object, extra, 1, nullptr);
+								a_event->harvester->AddObjectToContainer((*iter)->object, nullptr, 1, nullptr);
 							}
 						}
 					}
@@ -479,6 +538,8 @@ namespace Events
 		LOG1_1("{}Registered {}", typeid(RE::TESFormDeleteEvent).name())
 		scriptEventSourceHolder->GetEventSource<RE::TESContainerChangedEvent>()->AddEventSink(EventHandler::GetSingleton());
 		LOG1_1("{}Registered {}", typeid(RE::TESContainerChangedEvent).name())
+		scriptEventSourceHolder->GetEventSource<RE::TESActivateEvent>()->AddEventSink(EventHandler::GetSingleton());
+		LOG1_1("{}Registered {}", typeid(RE::TESActivateEvent).name())
 		RE::TESHarvestedEvent::GetEventSource()->AddEventSink(EventHandler::GetSingleton());
 		LOG1_1("{}Registered {}", typeid(RE::TESHarvestedEvent::ItemHarvested).name());
 

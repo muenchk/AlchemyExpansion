@@ -75,6 +75,8 @@ void Settings::LoadDistrConfig()
 	if (Logging::EnableLoadLog == false)
 		Logging::EnableGenericLogging = false;
 
+	Data* data = Data::GetSingleton();
+
 	std::vector<std::string> files;
 	auto constexpr folder = R"(Data\SKSE\Plugins\)";
 	for (const auto& entry : std::filesystem::directory_iterator(folder)) {
@@ -183,57 +185,155 @@ void Settings::LoadDistrConfig()
 					case 1:
 						{
 							switch (ruleType) {
-							/* case 10:  // set item strength
+							case 1001: // Effects
 								{
-									if (splits->size() != 4) {
-										logwarn("[Settings] [LoadDistrRules] rule has wrong number of fields, expected 4. file: {}, rule:\"{}\", fields: {}", file, tmp, splits->size());
+									if (splits->size() != 9) {
+										logwarn("[Settings] [LoadDistrRules] rule has wrong number of fields, expected 9. file: {}, rule:\"{}\", fields: {}", file, tmp, splits->size());
 										continue;
-									}
-									std::string strength = splits->at(splitindex);
-									splitindex++;
-									std::string assoc = splits->at(splitindex);
-									splitindex++;
-									bool error = false;
-									int total = 0;
-									std::vector<std::tuple<Distribution::AssocType, RE::FormID>> items = Utility::ParseAssocObjects(assoc, error, file, tmp, total);
-									ItemStrength str = ItemStrength::kWeak;
-									// arse item strength
-									try {
-										str = static_cast<ItemStrength>(std::stoi(strength));
-									} catch (std::out_of_range&) {
-										logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"ItemStrength\". file: {}, rule:\"{}\"", file, tmp);
-										delete splits;
-										continue;
-									} catch (std::invalid_argument&) {
-										logwarn("[Settings] [LoadDistrRules] invalid-argument expection in field \"ItemStrength\". file: {}, rule:\"{}\"", file, tmp);
-										delete splits;
-										continue;
-									}
-									catch (std::exception&) {
-										logwarn("[Settings] [LoadDistrRules] generic expection in field \"ItemStrength\". file: {}, rule:\"{}\"", file, tmp);
-										delete splits;
-										continue;
-									}
-									for (int i = 0; i < items.size(); i++) {
-										switch (std::get<0>(items[i])) {
-										case Distribution::AssocType::kItem:
-											Distribution::_itemStrengthMap.insert_or_assign(std::get<1>(items[i]), str);
-											break;
-										}
-										if (Logging::EnableLoadLog) {
-											if (std::get<0>(items[i]) & Distribution::AssocType::kItem) {
-												LOGLE1_2("[Settings] [LoadDistrRules] set item strength {}.", Utility::GetHex(std::get<1>(items[i])));
-											} else {
-												logwarn("[Settings] [LoadDistrRules] rule 10 is not applicable to object {}.", Utility::GetHex(std::get<1>(items[i])));
-											}
-										}
 									}
 
-									// since we are done delete splits
+									std::string assoc = splits->at(splitindex);
+									splitindex++;
+
+									bool error = false;
+									int total = 0;
+									std::vector<std::tuple<AssocType, RE::FormID>> items = Utility::ParseAssocObjects(assoc, error, file, tmp, total);
+
+									if (items.size() > 0 && std::get<0>(items[0]) & AssocType::kEffectSetting) {
+										Effect* eff = new Effect();
+										eff->formid = std::get<1>(items[0]);
+										eff->pluginName = Utility::Mods::GetPluginNameFromID(eff->formid);
+										eff->name = splits->at(splitindex);
+										splitindex++;
+										eff->editorID = splits->at(splitindex);
+										splitindex++;
+										try {
+											eff->actorValue = static_cast<RE::ActorValue>(std::stol(splits->at(splitindex)));
+											splitindex++;
+										} catch (std::exception&) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"ActorValue\". file: {}, rule:\"{}\"", file, tmp);
+											delete splits;
+											continue;
+										}
+										if (splits->at(splitindex) == "1")
+											eff->overwrite = true;
+										else
+											eff->overwrite = false;
+										splitindex++;
+										if (eff->overwrite) {
+											try {
+												eff->alchemyEffect = static_cast<AlchemyEffect>(std::stoul(splits->at(splitindex), nullptr, 16));
+											} catch (std::exception&) {
+												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"ActorValue\". file: {}, rule:\"{}\"", file, tmp);
+												delete splits;
+												continue;
+											}
+										} else {
+											eff->alchemyEffect = ConvertToAlchemyEffect(eff->actorValue);
+										}
+										splitindex++;
+										if (splits->at(splitindex) == "1")
+											eff->detrimental = true;
+										else
+											eff->detrimental = false;
+										splitindex++;
+
+										eff->effect = RE::TESForm::LookupByID<RE::EffectSetting>(eff->formid);
+										if (eff->effect == nullptr) {
+											logwarn("[Settings] [LoadDistrRules] Cannot find MagicEffect {}. file: {}, rule:\"{}\"", Utility::GetHex(eff->formid), file, tmp);
+											delete splits;
+											continue;
+										}
+
+										data->GetEffectMap()->insert_or_assign(Utility::ToLower(eff->name), eff);
+									}
+
 									delete splits;
 								}
-								break;*/
-							case 1:
+								break;
+							case 1002:
+								{
+									if (splits->size() != 19) {
+										logwarn("[Settings] [LoadDistrRules] rule has wrong number of fields, expected 19. file: {}, rule:\"{}\", fields: {}", file, tmp, splits->size());
+										continue;
+									}
+
+									std::string assoc = splits->at(splitindex);
+									splitindex++;
+
+									bool error = false;
+									int total = 0;
+									std::vector<std::tuple<AssocType, RE::FormID>> items = Utility::ParseAssocObjects(assoc, error, file, tmp, total);
+
+									if (items.size() > 0 && std::get<0>(items[0]) & AssocType::kItem) {
+										Ingredient* ing = new Ingredient();
+										for (int i = 0; i < 4; i++) {
+											ing->effects.push_back("");
+											ing->durations.push_back(0);
+											ing->magnitudes.push_back(0);
+											ing->magicEffects.push_back(nullptr);
+										}
+										// formid
+										ing->formid = std::get<1>(items[0]);
+										// pluginname
+										ing->pluginName = Utility::Mods::GetPluginNameFromID(ing->formid);
+										// editorid
+										ing->editorID = splits->at(splitindex);
+										splitindex++;
+										// Weight
+										try {
+											ing->weight = std::stof(splits->at(splitindex));
+											splitindex++;
+										} catch (std::exception&) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Weight\". file: {}, rule:\"{}\"", file, tmp);
+											delete splits;
+											continue;
+										}
+										// Value
+										try {
+											ing->value = std::stoi(splits->at(splitindex));
+											splitindex++;
+										} catch (std::exception&) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Value\". file: {}, rule:\"{}\"", file, tmp);
+											delete splits;
+											continue;
+										}
+										for (int i = 0; i < 4; i++) {
+											// effect
+											ing->effects[i] = splits->at(splitindex);
+											splitindex++;
+											// duration
+											try {
+												ing->durations[i] = std::stoi(splits->at(splitindex));
+												splitindex++;
+											} catch (std::exception&) {
+												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Duration{}\". file: {}, rule:\"{}\"", std::to_string(i), file, tmp);
+												delete splits;
+												continue;
+											}
+											// magnitude
+											try {
+												ing->magnitudes[i] = std::stof(splits->at(splitindex));
+												splitindex++;
+											} catch (std::exception&) {
+												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Magnitude{}\". file: {}, rule:\"{}\"", std::to_string(i), file, tmp);
+												delete splits;
+												continue;
+											}
+										}
+										// done
+										// get EffectSettings from registered effects
+										for (int i = 0; i < 4; i++) {
+											auto itr = data->GetEffectMap()->find(ing->effects[i]);
+											if (itr != data->GetEffectMap()->end()) {
+												ing->magicEffects[i] = itr->second->effect;
+											}
+										}
+
+										data->GetIngredientMap()->insert_or_assign(ing->formid, ing);
+									}
+									delete splits;
+								}
 								break;
 							default:
 								logwarn("[Settings] [LoadDistrRules] Rule type does not exist. file: {}, rule:\"{}\"", file, tmp);
@@ -344,6 +444,25 @@ static bool IsLeveledChar(RE::TESNPC* npc)
 	return false;
 }
 
+static std::string GetFormEditorID(RE::IngredientItem* fid)
+{
+	const auto& [map, lock] = RE::TESForm::GetAllFormsByEditorID();
+	const RE::BSReadLockGuard locker{ lock };
+	if (map) {
+		for (auto& [id, form] : *map) {
+			auto editorID = id.c_str();
+			RE::FormID formID = form->GetFormID();
+			if (formID == fid->GetFormID())
+				return std::string(editorID);
+		}
+	}
+	auto fullName = fid ? fid->As<RE::TESFullName>() : nullptr;
+	if (fullName) {
+		return std::string(fullName->fullName.c_str());
+	}
+	return "ERROR";
+}
+
 void Settings::ClassifyItems()
 {
 	// resetting all items
@@ -367,7 +486,7 @@ void Settings::ClassifyItems()
 	Data* data = Data::GetSingleton();
 	data->ResetAlchItemEffects();
 
-	std::vector<std::tuple<std::string, std::string>> ingredienteffectmap;
+	std::vector<Ingredient*> ingredienteffectmap;
 
 	// start sorting items
 
@@ -484,16 +603,36 @@ void Settings::ClassifyItems()
 			itemi = (*iter).second->As<RE::IngredientItem>();
 			if (itemi) {
 				LOGL1_4("{}[Settings] [ClassifyItems] Found IngredientItem {}", Utility::PrintForm(itemi));
+				Ingredient* ing = new Ingredient();
+				ing->name = itemi->GetFullName();
+				ing->editorid = itemi->GetFormEditorID();
+				ing->value = itemi->GetGoldValue();
+				ing->weight = itemi->GetWeight();
+				ing->item = itemi;
 				for (int i = 0; i < (int)itemi->effects.size(); i++) {
 					auto sett = itemi->effects[i]->baseEffect;
 					// just retrieve the effects, we will analyze them later
 					if (sett) {
-						ingredienteffectmap.push_back({ itemi->GetName(), Utility::ToString(ConvertToAlchemyEffectPrimary(sett)) });
-						
+						ing->effects.push_back(sett->GetFullName());
+						ing->effectsID.push_back(sett->GetFormEditorID());
+						ing->magnitudes.push_back(itemi->effects[i]->effectItem.magnitude);
+						ing->durations.push_back(itemi->effects[i]->effectItem.duration);
 						// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
 						_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+					} else {
+						ing->effects.push_back("");
+						ing->effectsID.push_back("");
+						ing->magnitudes.push_back(0);
+						ing->durations.push_back(0);
 					}
 				}
+				for (int i = (int)itemi->effects.size(); i <= 4; i++) {
+					ing->effects.push_back("");
+					ing->effectsID.push_back("");
+					ing->magnitudes.push_back(0);
+					ing->durations.push_back(0);
+				}
+				ingredienteffectmap.push_back(ing);
 			}
 		}
 		iter++;
@@ -518,6 +657,38 @@ void Settings::ClassifyItems()
 	LOGL1_1("{}[Settings] [ClassifyItems] _poisonsInsane {}", poisonsInsane()->size());
 	LOGL1_1("{}[Settings] [ClassifyItems] _foodall {}", foodall()->size());
 
+	
+	std::string pathing = "Data\\SKSE\\Plugins\\AlchemyExpansion\\ingredients_ALCH_DIST.ini";
+	std::filesystem::create_directories(std::filesystem::path(pathing).parent_path());
+	std::ofstream outing = std::ofstream(pathing, std::ofstream::out);
+	outing << ";RuleVersion = 1 | RuleType = 1002 | <FormID, PluginName> | Name | EditorID? | Weight | value | Effect1Name | Duration1 | Magnitude1 | Effect2Name | Duration2 | Magnitude2 | Effect3Name | Duration3 | Magnitude3 | Effect4Name | Duration4 | Magnitude4\n";
+	for (auto & ing : ingredienteffectmap) {
+		outing
+			<< "1"
+			<< "|1002"
+			<< "|<"
+			<< Utility::GetHex(Utility::Mods::GetIndexLessFormID(ing->item))
+			<< ","
+			<< Utility::Mods::GetPluginNameFromID(ing->item->GetFormID())
+			<< ">"
+			<< "|" << ing->item->GetFullName()
+			<< "|" << GetFormEditorID(ing->item)
+			<< "|" << std::to_string(ing->weight)
+			<< "|" << std::to_string(ing->value)
+			<< "|" << ing->effects[0]
+			<< "|" << ing->durations[0]
+			<< "|" << ing->magnitudes[0]
+			<< "|" << ing->effects[1]
+			<< "|" << ing->durations[1]
+			<< "|" << ing->magnitudes[1]
+			<< "|" << ing->effects[2]
+			<< "|" << ing->durations[2]
+			<< "|" << ing->magnitudes[2]
+			<< "|" << ing->effects[3]
+			<< "|" << ing->durations[3]
+			<< "|" << ing->magnitudes[3] << "\n";
+	}
+	outing.close();
 }
 
 std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::ClassifyItem(RE::AlchemyItem* item)
