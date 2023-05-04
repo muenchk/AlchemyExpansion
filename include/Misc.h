@@ -31,3 +31,22 @@ public:
 
 	RE::IngredientItem* item = nullptr;
 };
+
+
+class Potion
+{
+public:
+	std::string name = "";
+	RE::FormID formid = 0;
+	std::string editorID = "";
+	std::string pluginName = "";
+	float weight = 0;
+	int value = 0;
+	int numeffects = 0;
+	std::vector<std::string> effects;
+	std::vector<int> durations;
+	std::vector<float> magnitudes;
+	std::vector<RE::EffectSetting*> magicEffects;
+
+	RE::AlchemyItem* item = nullptr;
+};

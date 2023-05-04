@@ -224,7 +224,7 @@ void Settings::LoadDistrConfig()
 											try {
 												eff->alchemyEffect = static_cast<AlchemyEffect>(std::stoul(splits->at(splitindex), nullptr, 16));
 											} catch (std::exception&) {
-												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"ActorValue\". file: {}, rule:\"{}\"", file, tmp);
+												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"AlchemyEffect\". file: {}, rule:\"{}\"", file, tmp);
 												delete splits;
 												continue;
 											}
@@ -251,7 +251,7 @@ void Settings::LoadDistrConfig()
 									delete splits;
 								}
 								break;
-							case 1002:
+							case 1002: // ingredient
 								{
 									if (splits->size() != 19) {
 										logwarn("[Settings] [LoadDistrRules] rule has wrong number of fields, expected 19. file: {}, rule:\"{}\", fields: {}", file, tmp, splits->size());
@@ -277,6 +277,8 @@ void Settings::LoadDistrConfig()
 										ing->formid = std::get<1>(items[0]);
 										// pluginname
 										ing->pluginName = Utility::Mods::GetPluginNameFromID(ing->formid);
+										// name skip
+										splitindex++;
 										// editorid
 										ing->editorID = splits->at(splitindex);
 										splitindex++;
@@ -284,8 +286,8 @@ void Settings::LoadDistrConfig()
 										try {
 											ing->weight = std::stof(splits->at(splitindex));
 											splitindex++;
-										} catch (std::exception&) {
-											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Weight\". file: {}, rule:\"{}\"", file, tmp);
+										} catch (std::exception& e) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Weight\". file: {}, rule:\"{}\" What: {}, num: {}", file, tmp, e.what(), splits->at(splitindex));
 											delete splits;
 											continue;
 										}
@@ -330,7 +332,107 @@ void Settings::LoadDistrConfig()
 											}
 										}
 
+										ing->item = RE::TESForm::LookupByID<RE::IngredientItem>(ing->formid);
+										if (ing->item == nullptr) {
+											logwarn("[Settings] [LoadDistrRules] Cannot find Ingredient {}. file: {}, rule:\"{}\"", Utility::GetHex(ing->formid), file, tmp);
+											delete splits;
+											continue;
+										}
+
 										data->GetIngredientMap()->insert_or_assign(ing->formid, ing);
+									}
+									delete splits;
+								}
+								break;
+							case 1003:  // Potion
+								{
+									if (splits->size() != 8) {
+										logwarn("[Settings] [LoadDistrRules] rule has wrong number of fields, expected 8. file: {}, rule:\"{}\", fields: {}", file, tmp, splits->size());
+										continue;
+									}
+
+									std::string assoc = splits->at(splitindex);
+									splitindex++;
+
+									bool error = false;
+									int total = 0;
+									std::vector<std::tuple<AssocType, RE::FormID>> items = Utility::ParseAssocObjects(assoc, error, file, tmp, total);
+
+									if (items.size() > 0 && std::get<0>(items[0]) & AssocType::kItem) {
+										Potion* pot = new Potion();
+										// formid
+										pot->formid = std::get<1>(items[0]);
+										// pluginname
+										pot->pluginName = Utility::Mods::GetPluginNameFromID(pot->formid);
+										// name skip
+										splitindex++;
+										// editorid
+										pot->editorID = splits->at(splitindex);
+										pot->numeffects = 0;
+										splitindex++;
+										// Weight
+										try {
+											pot->weight = std::stof(splits->at(splitindex));
+											splitindex++;
+										} catch (std::exception&) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Weight\". file: {}, rule:\"{}\"", file, tmp);
+											delete splits;
+											continue;
+										}
+										// Value
+										try {
+											pot->value = std::stoi(splits->at(splitindex));
+											splitindex++;
+										} catch (std::exception&) {
+											logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Value\". file: {}, rule:\"{}\"", file, tmp);
+											delete splits;
+											continue;
+										}
+										std::vector<std::string> effects = Utility::SplitString(splits->at(splitindex), ';', true);
+										for (int i = 0; i < effects.size(); i++) {
+											std::vector<std::string> effs = Utility::SplitString(effects[i], ',', true);
+											if (effs.size() == 3) {
+												// effect
+												std::string eff = effs[0];
+												int dur = 0;
+												// duration
+												try {
+													dur = std::stoi(effs[1]);
+												} catch (std::exception&) {
+													logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Duration{}\". file: {}, rule:\"{}\"", std::to_string(i), file, tmp);
+													continue;
+												}
+												float mag = 0;
+												// magnitude
+												try {
+													mag = std::stof(effs[2]);
+												} catch (std::exception&) {
+													logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"Magnitude{}\". file: {}, rule:\"{}\"", std::to_string(i), file, tmp);
+													continue;
+												}
+												pot->effects.push_back(eff);
+												pot->durations.push_back(dur);
+												pot->magnitudes.push_back(mag);
+												pot->numeffects++;
+											}
+										}
+										// done
+										// get EffectSettings from registered effects
+										for (int i = 0; i < pot->numeffects; i++) {
+											auto itr = data->GetEffectMap()->find(pot->effects[i]);
+											if (itr != data->GetEffectMap()->end()) {
+												pot->magicEffects[i] = itr->second->effect;
+											}
+										}
+
+										pot->item = RE::TESForm::LookupByID<RE::AlchemyItem>(pot->formid);
+										if (pot->item == nullptr) {
+											logwarn("[Settings] [LoadDistrRules] Cannot find AlchemyItem {}. file: {}, rule:\"{}\"", Utility::GetHex(pot->formid), file, tmp);
+											delete splits;
+											continue;
+										}
+
+										data->GetPotionMap()->insert_or_assign(pot->formid, pot);
 									}
 									delete splits;
 								}
@@ -444,7 +546,7 @@ static bool IsLeveledChar(RE::TESNPC* npc)
 	return false;
 }
 
-static std::string GetFormEditorID(RE::IngredientItem* fid)
+static std::string GetFormEditorID(RE::MagicItem* fid)
 {
 	const auto& [map, lock] = RE::TESForm::GetAllFormsByEditorID();
 	const RE::BSReadLockGuard locker{ lock };
@@ -487,6 +589,7 @@ void Settings::ClassifyItems()
 	data->ResetAlchItemEffects();
 
 	std::vector<Ingredient*> ingredienteffectmap;
+	std::vector<Potion*> potioneffectmap;
 
 	// start sorting items
 
@@ -598,6 +701,32 @@ void Settings::ClassifyItems()
 				int dosage = 0;
 				// add item into effect map
 				data->SetAlchItemEffects(item->GetFormID(), std::get<0>(clas), std::get<3>(clas), std::get<4>(clas), std::get<5>(clas), dosage);
+
+				LOGL1_4("{}[Settings] [ClassifyItems] Found AlchemyItem {}", Utility::PrintForm(item));
+				Potion* pot = new Potion();
+				pot->name = item->GetFullName();
+				pot->editorID = item->GetFormEditorID();
+				pot->value = item->GetGoldValue();
+				pot->weight = item->GetWeight();
+				pot->item = item;
+				pot->numeffects = (int)item->effects.size();
+				for (int i = 0; i < (int)item->effects.size(); i++) {
+					auto sett = item->effects[i]->baseEffect;
+					// just retrieve the effects, we will analyze them later
+					if (sett) {
+						pot->effects.push_back(sett->GetFullName());
+						pot->magnitudes.push_back(item->effects[i]->effectItem.magnitude);
+						pot->durations.push_back(item->effects[i]->effectItem.duration);
+						// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
+						_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+					} else {
+						pot->effects.push_back("");
+						pot->magnitudes.push_back(0);
+						pot->durations.push_back(0);
+					}
+				}
+				potioneffectmap.push_back(pot);
+
 			}
 
 			itemi = (*iter).second->As<RE::IngredientItem>();
@@ -605,7 +734,7 @@ void Settings::ClassifyItems()
 				LOGL1_4("{}[Settings] [ClassifyItems] Found IngredientItem {}", Utility::PrintForm(itemi));
 				Ingredient* ing = new Ingredient();
 				ing->name = itemi->GetFullName();
-				ing->editorid = itemi->GetFormEditorID();
+				ing->editorID = itemi->GetFormEditorID();
 				ing->value = itemi->GetGoldValue();
 				ing->weight = itemi->GetWeight();
 				ing->item = itemi;
@@ -614,21 +743,18 @@ void Settings::ClassifyItems()
 					// just retrieve the effects, we will analyze them later
 					if (sett) {
 						ing->effects.push_back(sett->GetFullName());
-						ing->effectsID.push_back(sett->GetFormEditorID());
 						ing->magnitudes.push_back(itemi->effects[i]->effectItem.magnitude);
 						ing->durations.push_back(itemi->effects[i]->effectItem.duration);
 						// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
 						_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
 					} else {
 						ing->effects.push_back("");
-						ing->effectsID.push_back("");
 						ing->magnitudes.push_back(0);
 						ing->durations.push_back(0);
 					}
 				}
 				for (int i = (int)itemi->effects.size(); i <= 4; i++) {
 					ing->effects.push_back("");
-					ing->effectsID.push_back("");
 					ing->magnitudes.push_back(0);
 					ing->durations.push_back(0);
 				}
@@ -687,6 +813,38 @@ void Settings::ClassifyItems()
 			<< "|" << ing->effects[3]
 			<< "|" << ing->durations[3]
 			<< "|" << ing->magnitudes[3] << "\n";
+	}
+	outing.close();
+
+	pathing = "Data\\SKSE\\Plugins\\AlchemyExpansion\\potions_ALCH_DIST.ini";
+	std::filesystem::create_directories(std::filesystem::path(pathing).parent_path());
+	outing = std::ofstream(pathing, std::ofstream::out);
+	outing << ";RuleVersion = 1 | RuleType = 1003 | <FormID, PluginName> | Name | EditorID? | Weight | value | Effect1Name | Duration1 | Magnitude1 | Effect2Name | Duration2 | Magnitude2 | Effect3Name | Duration3 | Magnitude3 | Effect4Name | Duration4 | Magnitude4\n";
+	for (auto& pot : potioneffectmap) {
+		outing
+			<< "1"
+			<< "|1003"
+			<< "|<"
+			<< Utility::GetHex(Utility::Mods::GetIndexLessFormID(pot->item))
+			<< ","
+			<< Utility::Mods::GetPluginNameFromID(pot->item->GetFormID())
+			<< ">"
+			<< "|" << pot->item->GetFullName()
+			<< "|" << GetFormEditorID(pot->item)
+			<< "|" << std::to_string(pot->weight)
+			<< "|" << std::to_string(pot->value)
+			<< "|";
+		if (pot->numeffects > 0)
+		{
+			outing << pot->effects[0] << ","
+				   << pot->durations[0] << "," << pot->magnitudes[0];
+		}
+		for (int i = 1; i < pot->numeffects; i++)
+		{
+			outing << ";" << pot->effects[i] << ","
+				   << pot->durations[i] << "," << pot->magnitudes[i];
+		}
+		outing << "\n";
 	}
 	outing.close();
 }

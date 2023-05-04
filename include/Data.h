@@ -40,6 +40,11 @@ private:
 	/// </summary>
 	std::unordered_map<RE::FormID, Ingredient*> ingredientMap;
 
+	/// <summary>
+	/// map that contains all potions to be modified
+	/// </summary>
+	std::unordered_map<RE::FormID, Potion*> potionMap;
+
 public:
 	/// <summary>
 	/// Initializes data.
@@ -115,4 +120,9 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	std::unordered_map<RE::FormID, Ingredient*>* GetIngredientMap() { return &ingredientMap; }
-}; 
+	/// <summary>
+	/// Returns the map that stores all potions to be modified
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<RE::FormID, Potion*>* GetPotionMap() { return &potionMap; }
+};
