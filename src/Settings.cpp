@@ -222,9 +222,9 @@ void Settings::LoadDistrConfig()
 										splitindex++;
 										if (eff->overwrite) {
 											try {
-												eff->alchemyEffect = static_cast<AlchemyEffect>(std::stoul(splits->at(splitindex), nullptr, 16));
-											} catch (std::exception&) {
-												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"AlchemyEffect\". file: {}, rule:\"{}\"", file, tmp);
+												eff->alchemyEffect = static_cast<AlchemyEffect>(std::stoull(splits->at(splitindex), nullptr, 16));
+											} catch (std::exception& e) {
+												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"AlchemyEffect\". file: {}, rule:\"{}\" What: {}", file, tmp, e.what());
 												delete splits;
 												continue;
 											}
