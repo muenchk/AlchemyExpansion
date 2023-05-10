@@ -530,7 +530,7 @@ namespace Events
 		LOG1_1("{}Registered {}", typeid(RE::TESEquipEvent).name());
 		scriptEventSourceHolder->GetEventSource<RE::TESDeathEvent>()->AddEventSink(EventHandler::GetSingleton());
 		LOG1_1("{}Registered {}", typeid(RE::TESDeathEvent).name());
-		RE::PlayerCharacter::GetSingleton()->GetEventSource<RE::BGSActorCellEvent>()->AddEventSink(EventHandler::GetSingleton());
+		RE::PlayerCharacter::GetSingleton()->AsBGSActorCellEventSource()->AddEventSink(EventHandler::GetSingleton());
 		LOG1_1("{}Registered {}", typeid(RE::BGSActorCellEvent).name());
 		scriptEventSourceHolder->GetEventSource<RE::TESCellAttachDetachEvent>()->AddEventSink(EventHandler::GetSingleton());
 		LOG1_1("{}Registered {}", typeid(RE::TESCellAttachDetachEvent).name());

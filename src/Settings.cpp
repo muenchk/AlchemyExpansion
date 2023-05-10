@@ -594,174 +594,175 @@ void Settings::ClassifyItems()
 	// start sorting items
 
 	auto begin = std::chrono::steady_clock::now();
-	auto hashtable = std::get<0>(RE::TESForm::GetAllForms());
-	auto end = hashtable->end();
-	auto iter = hashtable->begin();
-	RE::AlchemyItem* item = nullptr;
-	RE::IngredientItem* itemi = nullptr;
-	while (iter != end) {
-		if ((*iter).second && (*iter).second->IsMagicItem()) {
-			item = (*iter).second->As<RE::AlchemyItem>();
-			if (item) {
-				LOGL1_4("{}[Settings] [ClassifyItems] Found AlchemyItem {}", Utility::PrintForm(item));
-				// unnamed items cannot appear in anyones inventory normally so son't add them to our lists
-				if (item->GetName() == nullptr || item->GetName() == (const char*)"" || strlen(item->GetName()) == 0 ||
-					std::string(item->GetName()).find(std::string("Dummy")) != std::string::npos ||
-					std::string(item->GetName()).find(std::string("dummy")) != std::string::npos) {
-					iter++;
-					continue;
-				}
-
-				auto clas = ClassifyItem(item);
-				// set medicine flag for those who need it
-				if (item->IsFood() == false && item->IsPoison() == false) {  //  && item->IsMedicine() == false
-					item->data.flags = RE::AlchemyItem::AlchemyFlag::kMedicine | item->data.flags;
-					if (Logging::EnableLoadLog && Logging::LogLevel >= 4) {
-						//LOGLE1_1("Item: {}", Utility::PrintForm(item));
-						if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kCostOverride)
-							LOGLE_1("\tFlag: CostOverride");
-						if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kFoodItem)
-							LOGLE_1("\tFlag: FoodItem");
-						if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kExtendDuration)
-							LOGLE_1("\tFlag: ExtendedDuration");
-						if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kMedicine)
-							LOGLE_1("\tFlag: Medicine");
-						if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kPoison)
-							LOGLE_1("\tFlag: Poison");
+	const auto& [hashtable, lock] = RE::TESForm::GetAllForms();
+	const RE::BSReadLockGuard locker{ lock };
+	if (hashtable) {
+		RE::AlchemyItem* item = nullptr;
+		RE::IngredientItem* itemi = nullptr;
+		for (auto& [id, form] : *hashtable) {
+			if (form && form->IsMagicItem())
+			{
+				item = form->As<RE::AlchemyItem>();
+				if (item)
+				{
+					LOGL1_4("{}[Settings] [ClassifyItems] Found AlchemyItem {}", Utility::PrintForm(item));
+					// unnamed items cannot appear in anyones inventory normally so son't add them to our lists
+					if (item->GetName() == nullptr || item->GetName() == (const char*)"" || strlen(item->GetName()) == 0 ||
+						std::string(item->GetName()).find(std::string("Dummy")) != std::string::npos ||
+						std::string(item->GetName()).find(std::string("dummy")) != std::string::npos) {
+						continue;
 					}
-					//LOGLE1_1("[Settings] [ClassifyItems] [AssignPotionFlag] {}", Utility::PrintForm(item));
-				}
-				// exclude item, if it has an alchemy effect that has been excluded
-				AlchemyEffectBase effects = std::get<0>(clas);
 
-				// since the item is not to be excluded, save which alchemic effects are present
-				_alchemyEffectsFound |= std::get<0>(clas);
-
-				// determine the type of item
-				if (std::get<2>(clas) == ItemType::kFood &&
-					(std::get<5>(clas) == false /*either we allow detrimental effects or there are none*/)) {
-					_foodall.insert(_foodall.end(), { std::get<0>(clas), item });
-					_foodEffectsFound |= std::get<0>(clas);
-				} else if (std::get<2>(clas) == ItemType::kPoison &&
-						   (std::get<5>(clas) == false /*either we allow positive effects or there are none*/)) {
-					switch (std::get<1>(clas)) {
-					case ItemStrength::kWeak:
-						_poisonsWeak.insert(_poisonsWeak.end(), { std::get<0>(clas), item });
-						break;
-					case ItemStrength::kStandard:
-						_poisonsStandard.insert(_poisonsStandard.end(), { std::get<0>(clas), item });
-						break;
-					case ItemStrength::kPotent:
-						_poisonsPotent.insert(_poisonsPotent.end(), { std::get<0>(clas), item });
-						break;
-					case ItemStrength::kInsane:
-						_poisonsInsane.insert(_poisonsInsane.end(), { std::get<0>(clas), item });
-						break;
+					auto clas = ClassifyItem(item);
+					// set medicine flag for those who need it
+					if (item->IsFood() == false && item->IsPoison() == false) {  //  && item->IsMedicine() == false
+						item->data.flags = RE::AlchemyItem::AlchemyFlag::kMedicine | item->data.flags;
+						if (Logging::EnableLoadLog && Logging::LogLevel >= 4) {
+							//LOGLE1_1("Item: {}", Utility::PrintForm(item));
+							if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kCostOverride)
+								LOGLE_1("\tFlag: CostOverride");
+							if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kFoodItem)
+								LOGLE_1("\tFlag: FoodItem");
+							if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kExtendDuration)
+								LOGLE_1("\tFlag: ExtendedDuration");
+							if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kMedicine)
+								LOGLE_1("\tFlag: Medicine");
+							if (item->data.flags & RE::AlchemyItem::AlchemyFlag::kPoison)
+								LOGLE_1("\tFlag: Poison");
+						}
+						//LOGLE1_1("[Settings] [ClassifyItems] [AssignPotionFlag] {}", Utility::PrintForm(item));
 					}
-					_poisonEffectsFound |= std::get<0>(clas);
-				} else if (std::get<2>(clas) == ItemType::kPotion &&
-						   (std::get<5>(clas) == false /*either we allow detrimental effects or there are none*/)) {
-					if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kBlood)) > 0)
-						_potionsBlood.insert(_potionsBlood.end(), { std::get<0>(clas), item });
-					else if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kHealth)) > 0 ||
-							 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kMagicka)) > 0 ||
-							 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kStamina)) > 0) {
+					// exclude item, if it has an alchemy effect that has been excluded
+					AlchemyEffectBase effects = std::get<0>(clas);
+
+					// since the item is not to be excluded, save which alchemic effects are present
+					_alchemyEffectsFound |= std::get<0>(clas);
+
+					// determine the type of item
+					if (std::get<2>(clas) == ItemType::kFood &&
+						(std::get<5>(clas) == false /*either we allow detrimental effects or there are none*/)) {
+						_foodall.insert(_foodall.end(), { std::get<0>(clas), item });
+						_foodEffectsFound |= std::get<0>(clas);
+					} else if (std::get<2>(clas) == ItemType::kPoison &&
+							   (std::get<5>(clas) == false /*either we allow positive effects or there are none*/)) {
 						switch (std::get<1>(clas)) {
 						case ItemStrength::kWeak:
-							_potionsWeak_main.insert(_potionsWeak_main.end(), { std::get<0>(clas), item });
+							_poisonsWeak.insert(_poisonsWeak.end(), { std::get<0>(clas), item });
 							break;
 						case ItemStrength::kStandard:
-							_potionsStandard_main.insert(_potionsStandard_main.end(), { std::get<0>(clas), item });
+							_poisonsStandard.insert(_poisonsStandard.end(), { std::get<0>(clas), item });
 							break;
 						case ItemStrength::kPotent:
-							_potionsPotent_main.insert(_potionsPotent_main.end(), { std::get<0>(clas), item });
+							_poisonsPotent.insert(_poisonsPotent.end(), { std::get<0>(clas), item });
 							break;
 						case ItemStrength::kInsane:
-							_potionsInsane_main.insert(_potionsPotent_main.end(), { std::get<0>(clas), item });
+							_poisonsInsane.insert(_poisonsInsane.end(), { std::get<0>(clas), item });
 							break;
 						}
-					} else if (std::get<0>(clas) != static_cast<uint64_t>(AlchemyEffect::kNone)) {
-						switch (std::get<1>(clas)) {
-						case ItemStrength::kWeak:
-							_potionsWeak_rest.insert(_potionsWeak_rest.end(), { std::get<0>(clas), item });
-							break;
-						case ItemStrength::kStandard:
-							_potionsStandard_rest.insert(_potionsStandard_rest.end(), { std::get<0>(clas), item });
-							break;
-						case ItemStrength::kPotent:
-							_potionsPotent_rest.insert(_potionsPotent_rest.end(), { std::get<0>(clas), item });
-							break;
-						case ItemStrength::kInsane:
-							_potionsInsane_rest.insert(_potionsInsane_rest.end(), { std::get<0>(clas), item });
-							break;
+						_poisonEffectsFound |= std::get<0>(clas);
+					} else if (std::get<2>(clas) == ItemType::kPotion &&
+							   (std::get<5>(clas) == false /*either we allow detrimental effects or there are none*/)) {
+						if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kBlood)) > 0)
+							_potionsBlood.insert(_potionsBlood.end(), { std::get<0>(clas), item });
+						else if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kHealth)) > 0 ||
+								 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kMagicka)) > 0 ||
+								 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kStamina)) > 0) {
+							switch (std::get<1>(clas)) {
+							case ItemStrength::kWeak:
+								_potionsWeak_main.insert(_potionsWeak_main.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kStandard:
+								_potionsStandard_main.insert(_potionsStandard_main.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kPotent:
+								_potionsPotent_main.insert(_potionsPotent_main.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kInsane:
+								_potionsInsane_main.insert(_potionsPotent_main.end(), { std::get<0>(clas), item });
+								break;
+							}
+						} else if (std::get<0>(clas) != static_cast<uint64_t>(AlchemyEffect::kNone)) {
+							switch (std::get<1>(clas)) {
+							case ItemStrength::kWeak:
+								_potionsWeak_rest.insert(_potionsWeak_rest.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kStandard:
+								_potionsStandard_rest.insert(_potionsStandard_rest.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kPotent:
+								_potionsPotent_rest.insert(_potionsPotent_rest.end(), { std::get<0>(clas), item });
+								break;
+							case ItemStrength::kInsane:
+								_potionsInsane_rest.insert(_potionsInsane_rest.end(), { std::get<0>(clas), item });
+								break;
+							}
+						}
+						_potionEffectsFound |= std::get<0>(clas);
+					}
+					int dosage = 0;
+					// add item into effect map
+					data->SetAlchItemEffects(item->GetFormID(), std::get<0>(clas), std::get<3>(clas), std::get<4>(clas), std::get<5>(clas), dosage);
+
+					LOGL1_4("{}[Settings] [ClassifyItems] Found AlchemyItem {}", Utility::PrintForm(item));
+					Potion* pot = new Potion();
+					pot->name = item->GetFullName();
+					pot->editorID = item->GetFormEditorID();
+					pot->value = item->GetGoldValue();
+					pot->weight = item->GetWeight();
+					pot->item = item;
+					pot->numeffects = (int)item->effects.size();
+					for (int i = 0; i < (int)item->effects.size(); i++) {
+						auto sett = item->effects[i]->baseEffect;
+						// just retrieve the effects, we will analyze them later
+						if (sett) {
+							pot->effects.push_back(sett->GetFullName());
+							pot->magnitudes.push_back(item->effects[i]->effectItem.magnitude);
+							pot->durations.push_back(item->effects[i]->effectItem.duration);
+							// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
+							_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+						} else {
+							pot->effects.push_back("");
+							pot->magnitudes.push_back(0);
+							pot->durations.push_back(0);
 						}
 					}
-					_potionEffectsFound |= std::get<0>(clas);
+					potioneffectmap.push_back(pot);
 				}
-				int dosage = 0;
-				// add item into effect map
-				data->SetAlchItemEffects(item->GetFormID(), std::get<0>(clas), std::get<3>(clas), std::get<4>(clas), std::get<5>(clas), dosage);
-
-				LOGL1_4("{}[Settings] [ClassifyItems] Found AlchemyItem {}", Utility::PrintForm(item));
-				Potion* pot = new Potion();
-				pot->name = item->GetFullName();
-				pot->editorID = item->GetFormEditorID();
-				pot->value = item->GetGoldValue();
-				pot->weight = item->GetWeight();
-				pot->item = item;
-				pot->numeffects = (int)item->effects.size();
-				for (int i = 0; i < (int)item->effects.size(); i++) {
-					auto sett = item->effects[i]->baseEffect;
-					// just retrieve the effects, we will analyze them later
-					if (sett) {
-						pot->effects.push_back(sett->GetFullName());
-						pot->magnitudes.push_back(item->effects[i]->effectItem.magnitude);
-						pot->durations.push_back(item->effects[i]->effectItem.duration);
-						// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
-						_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
-					} else {
-						pot->effects.push_back("");
-						pot->magnitudes.push_back(0);
-						pot->durations.push_back(0);
+				
+				itemi = form->As<RE::IngredientItem>();
+				if (itemi)
+				{
+					LOGL1_4("{}[Settings] [ClassifyItems] Found IngredientItem {}", Utility::PrintForm(itemi));
+					Ingredient* ing = new Ingredient();
+					ing->name = itemi->GetFullName();
+					ing->editorID = itemi->GetFormEditorID();
+					ing->value = itemi->GetGoldValue();
+					ing->weight = itemi->GetWeight();
+					ing->item = itemi;
+					for (int i = 0; i < (int)itemi->effects.size(); i++) {
+						auto sett = itemi->effects[i]->baseEffect;
+						// just retrieve the effects, we will analyze them later
+						if (sett) {
+							ing->effects.push_back(sett->GetFullName());
+							ing->magnitudes.push_back(itemi->effects[i]->effectItem.magnitude);
+							ing->durations.push_back(itemi->effects[i]->effectItem.duration);
+							// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
+							_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+						} else {
+							ing->effects.push_back("");
+							ing->magnitudes.push_back(0);
+							ing->durations.push_back(0);
+						}
 					}
-				}
-				potioneffectmap.push_back(pot);
-
-			}
-
-			itemi = (*iter).second->As<RE::IngredientItem>();
-			if (itemi) {
-				LOGL1_4("{}[Settings] [ClassifyItems] Found IngredientItem {}", Utility::PrintForm(itemi));
-				Ingredient* ing = new Ingredient();
-				ing->name = itemi->GetFullName();
-				ing->editorID = itemi->GetFormEditorID();
-				ing->value = itemi->GetGoldValue();
-				ing->weight = itemi->GetWeight();
-				ing->item = itemi;
-				for (int i = 0; i < (int)itemi->effects.size(); i++) {
-					auto sett = itemi->effects[i]->baseEffect;
-					// just retrieve the effects, we will analyze them later
-					if (sett) {
-						ing->effects.push_back(sett->GetFullName());
-						ing->magnitudes.push_back(itemi->effects[i]->effectItem.magnitude);
-						ing->durations.push_back(itemi->effects[i]->effectItem.duration);
-						// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
-						_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
-					} else {
+					for (int i = (int)itemi->effects.size(); i <= 4; i++) {
 						ing->effects.push_back("");
 						ing->magnitudes.push_back(0);
 						ing->durations.push_back(0);
 					}
+					ingredienteffectmap.push_back(ing);
 				}
-				for (int i = (int)itemi->effects.size(); i <= 4; i++) {
-					ing->effects.push_back("");
-					ing->magnitudes.push_back(0);
-					ing->durations.push_back(0);
-				}
-				ingredienteffectmap.push_back(ing);
 			}
 		}
-		iter++;
 	}
 	PROF1_1("{}[ClassifyItems] execution time: {} µs", std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()));
 

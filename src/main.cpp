@@ -38,7 +38,7 @@ namespace
 		Profile::Init(Settings::PluginNamePlain);
 	}
 }
-
+/*
 #if defined(SKYRIM_SUPPORT_AE353)
 	// AE
 extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() {
@@ -91,6 +91,41 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface * 
 	return true;
 } 
 #endif
+*/
+
+extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a_skse, SKSE::PluginInfo* a_info)
+{
+	InitializeLog();
+	a_info->infoVersion = SKSE::PluginInfo::kVersion;
+	a_info->name = Plugin::NAME.data();
+	a_info->version = Plugin::VERSION[0];
+
+	if (a_skse->IsEditor()) {
+		logger::critical("Loaded in editor, marking as incompatible"sv);
+		return false;
+	}
+
+	const auto ver = a_skse->RuntimeVersion();
+	if (ver < SKSE::RUNTIME_SSE_1_5_39) {
+		logger::critical(FMT_STRING("Unsupported runtime version {}"), ver.string());
+		return false;
+	}
+	return true;
+} 
+
+extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() {
+	SKSE::PluginVersionData v;
+
+	v.PluginVersion(Plugin::VERSION);
+	v.PluginName(Plugin::NAME);
+	v.AuthorName("KoeniglichePM");
+
+	v.UsesAddressLibrary();
+	v.CompatibleVersions({ SKSE::RUNTIME_SSE_LATEST, SKSE::RUNTIME_LATEST_VR });
+	v.HasNoStructUse();
+
+	return v;
+}();
 
 void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 {
@@ -122,7 +157,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 		PROF1_1("{}[main] [Startup] execution time: {} µs", std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()));
 	}
 }
-
+/*
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
 #ifdef SKYRIM_SUPPORT_AE
@@ -156,6 +191,41 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	return true;
 }
+*/
+
+extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
+{
+	InitializeLog();
+
+	auto* plugin = SKSE::PluginDeclaration::GetSingleton();
+	auto version = plugin->GetVersion();
+	loginfo("{} v{}"sv, plugin->GetName(), version);
+	profile("{} v{}"sv, plugin->GetName(), version);
+
+	
+   SKSE::Init(a_skse);
+
+	auto messaging = SKSE::GetMessagingInterface();
+	if (!messaging->RegisterListener("SKSE", MessageHandler)) {
+		logger::error("[LOADPLUGIN] couldn't register listener");
+		return false;
+	}
+
+	auto serialization = (SKSE::SerializationInterface*)a_skse->QueryInterface(SKSE::LoadInterface::kSerialization);
+	if (!serialization) {
+		logger::error("[LOADPLUGIN] couldn't get serialization interface");
+		return false;
+	}
+
+	// register game load save events
+	Game::SaveLoad::GetSingleton()->Register(serialization, 0xFD34899E);
+
+	// register papyrus functions
+	SKSE::GetPapyrusInterface()->Register(Papyrus::Register);
+
+	return true;
+}
+
 
 extern "C" DLLEXPORT void* SKSEAPI RequestPluginAPI()
 {
