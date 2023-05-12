@@ -5,6 +5,7 @@
 #include "Compatibility.h"
 #include "Papyrus.h"
 #include "Data.h"
+#include "Hooks.h"
 
 namespace
 {
@@ -154,6 +155,10 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
 		Events::RegisterAllEventHandlers();
 		logger::info("Registered Events");
 		logger::info("Registered Console Commands");
+
+		// patch potions and ingredients
+		Data::GetSingleton()->PatchGameData();
+		logger::info("Patched Game Data");
 		PROF1_1("{}[main] [Startup] execution time: {} µs", std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()));
 	}
 }
@@ -203,7 +208,9 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	profile("{} v{}"sv, plugin->GetName(), version);
 
 	
-   SKSE::Init(a_skse);
+    SKSE::Init(a_skse);
+	SKSE::AllocTrampoline(1 << 10);
+
 
 	auto messaging = SKSE::GetMessagingInterface();
 	if (!messaging->RegisterListener("SKSE", MessageHandler)) {
@@ -222,6 +229,8 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	// register papyrus functions
 	SKSE::GetPapyrusInterface()->Register(Papyrus::Register);
+
+	//Hooks::Install();
 
 	return true;
 }

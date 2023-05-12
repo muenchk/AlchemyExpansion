@@ -134,6 +134,9 @@ void Settings::LoadDistrConfig()
 					// check again
 					if (line.length() == 0 || line[0] == ';')
 						continue;
+
+					LOG1_1("{}[Settings] [LoadDistrRules] Loading rule: {}", line);
+
 					// now begin the actual processing
 					std::vector<std::string>* splits = new std::vector<std::string>();
 					// split the string into parts
@@ -222,7 +225,7 @@ void Settings::LoadDistrConfig()
 										splitindex++;
 										if (eff->overwrite) {
 											try {
-												eff->alchemyEffect = static_cast<AlchemyEffect>(std::stoull(splits->at(splitindex), nullptr, 16));
+												eff->alchemyEffect = splits->at(splitindex);
 											} catch (std::exception& e) {
 												logwarn("[Settings] [LoadDistrRules] out-of-range expection in field \"AlchemyEffect\". file: {}, rule:\"{}\" What: {}", file, tmp, e.what());
 												delete splits;
@@ -326,7 +329,7 @@ void Settings::LoadDistrConfig()
 										// done
 										// get EffectSettings from registered effects
 										for (int i = 0; i < 4; i++) {
-											auto itr = data->GetEffectMap()->find(ing->effects[i]);
+											auto itr = data->GetEffectMap()->find(Utility::ToLower(ing->effects[i]));
 											if (itr != data->GetEffectMap()->end()) {
 												ing->magicEffects[i] = itr->second->effect;
 											}
@@ -390,6 +393,7 @@ void Settings::LoadDistrConfig()
 										}
 										std::vector<std::string> effects = Utility::SplitString(splits->at(splitindex), ';', true);
 										for (int i = 0; i < effects.size(); i++) {
+											LOG_1("{}[Wild] Processing Effect");
 											std::vector<std::string> effs = Utility::SplitString(effects[i], ',', true);
 											if (effs.size() == 3) {
 												// effect
@@ -419,13 +423,20 @@ void Settings::LoadDistrConfig()
 										// done
 										// get EffectSettings from registered effects
 										for (int i = 0; i < pot->numeffects; i++) {
-											auto itr = data->GetEffectMap()->find(pot->effects[i]);
+											LOG_1("{}[Wild] Finding EffectSetting");
+											auto itr = data->GetEffectMap()->find(Utility::ToLower(pot->effects[i]));
+											LOG_1("{}[Wild] Finding EffectSetting 2");
 											if (itr != data->GetEffectMap()->end()) {
-												pot->magicEffects[i] = itr->second->effect;
-											}
+												LOG_1("{}[Wild] Finding EffectSetting 3");
+												pot->magicEffects.push_back(itr->second->effect);
+												LOG_1("{}[Wild] Finding EffectSetting 4");
+											} else
+												pot->magicEffects.push_back(nullptr);
 										}
 
+										LOG_1("{}[Wild] LookingUp");
 										pot->item = RE::TESForm::LookupByID<RE::AlchemyItem>(pot->formid);
+										LOG_1("{}[Wild] LookedUp");
 										if (pot->item == nullptr) {
 											logwarn("[Settings] [LoadDistrRules] Cannot find AlchemyItem {}. file: {}, rule:\"{}\"", Utility::GetHex(pot->formid), file, tmp);
 											delete splits;
@@ -433,6 +444,7 @@ void Settings::LoadDistrConfig()
 										}
 
 										data->GetPotionMap()->insert_or_assign(pot->formid, pot);
+										LOG_1("{}[Wild] Done");
 									}
 									delete splits;
 								}
@@ -565,6 +577,25 @@ static std::string GetFormEditorID(RE::MagicItem* fid)
 	return "ERROR";
 }
 
+static std::string GetFormEditorID(RE::EffectSetting* fid)
+{
+	const auto& [map, lock] = RE::TESForm::GetAllFormsByEditorID();
+	const RE::BSReadLockGuard locker{ lock };
+	if (map) {
+		for (auto& [id, form] : *map) {
+			auto editorID = id.c_str();
+			RE::FormID formID = form->GetFormID();
+			if (formID == fid->GetFormID())
+				return std::string(editorID);
+		}
+	}
+	auto fullName = fid ? fid->As<RE::TESFullName>() : nullptr;
+	if (fullName) {
+		return std::string(fullName->fullName.c_str());
+	}
+	return "ERROR";
+}
+
 void Settings::ClassifyItems()
 {
 	// resetting all items
@@ -633,7 +664,7 @@ void Settings::ClassifyItems()
 						//LOGLE1_1("[Settings] [ClassifyItems] [AssignPotionFlag] {}", Utility::PrintForm(item));
 					}
 					// exclude item, if it has an alchemy effect that has been excluded
-					AlchemyEffectBase effects = std::get<0>(clas);
+					AlchemicEffect effects = std::get<0>(clas);
 
 					// since the item is not to be excluded, save which alchemic effects are present
 					_alchemyEffectsFound |= std::get<0>(clas);
@@ -662,11 +693,11 @@ void Settings::ClassifyItems()
 						_poisonEffectsFound |= std::get<0>(clas);
 					} else if (std::get<2>(clas) == ItemType::kPotion &&
 							   (std::get<5>(clas) == false /*either we allow detrimental effects or there are none*/)) {
-						if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kBlood)) > 0)
+						if ((std::get<0>(clas) & AlchemicEffect::kBlood) > 0)
 							_potionsBlood.insert(_potionsBlood.end(), { std::get<0>(clas), item });
-						else if ((std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kHealth)) > 0 ||
-								 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kMagicka)) > 0 ||
-								 (std::get<0>(clas) & static_cast<uint64_t>(AlchemyEffect::kStamina)) > 0) {
+						else if ((std::get<0>(clas) & AlchemicEffect::kHealth) > 0 ||
+								 (std::get<0>(clas) & AlchemicEffect::kMagicka) > 0 ||
+								 (std::get<0>(clas) & AlchemicEffect::kStamina) > 0) {
 							switch (std::get<1>(clas)) {
 							case ItemStrength::kWeak:
 								_potionsWeak_main.insert(_potionsWeak_main.end(), { std::get<0>(clas), item });
@@ -681,7 +712,7 @@ void Settings::ClassifyItems()
 								_potionsInsane_main.insert(_potionsPotent_main.end(), { std::get<0>(clas), item });
 								break;
 							}
-						} else if (std::get<0>(clas) != static_cast<uint64_t>(AlchemyEffect::kNone)) {
+						} else if (std::get<0>(clas) != AlchemicEffect::kNone) {
 							switch (std::get<1>(clas)) {
 							case ItemStrength::kWeak:
 								_potionsWeak_rest.insert(_potionsWeak_rest.end(), { std::get<0>(clas), item });
@@ -719,7 +750,7 @@ void Settings::ClassifyItems()
 							pot->magnitudes.push_back(item->effects[i]->effectItem.magnitude);
 							pot->durations.push_back(item->effects[i]->effectItem.duration);
 							// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
-							_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+							_alchemyEffectsFound |= ConvertToAlchemyEffectPrimary(sett);
 						} else {
 							pot->effects.push_back("");
 							pot->magnitudes.push_back(0);
@@ -746,12 +777,14 @@ void Settings::ClassifyItems()
 							ing->effects.push_back(sett->GetFullName());
 							ing->magnitudes.push_back(itemi->effects[i]->effectItem.magnitude);
 							ing->durations.push_back(itemi->effects[i]->effectItem.duration);
+							ing->magicEffects.push_back(sett);
 							// the effects of ingredients may lead to valid potions being brewed, so we need to save that these effects actually exist in the game
-							_alchemyEffectsFound |= static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett));
+							_alchemyEffectsFound |= ConvertToAlchemyEffectPrimary(sett);
 						} else {
 							ing->effects.push_back("");
 							ing->magnitudes.push_back(0);
 							ing->durations.push_back(0);
+							ing->magicEffects.push_back(nullptr);
 						}
 					}
 					for (int i = (int)itemi->effects.size(); i <= 4; i++) {
@@ -783,6 +816,7 @@ void Settings::ClassifyItems()
 	LOGL1_1("{}[Settings] [ClassifyItems] _poisonsPotent {}", poisonsPotent()->size());
 	LOGL1_1("{}[Settings] [ClassifyItems] _poisonsInsane {}", poisonsInsane()->size());
 	LOGL1_1("{}[Settings] [ClassifyItems] _foodall {}", foodall()->size());
+
 
 	
 	std::string pathing = "Data\\SKSE\\Plugins\\AlchemyExpansion\\ingredients_ALCH_DIST.ini";
@@ -848,16 +882,52 @@ void Settings::ClassifyItems()
 		outing << "\n";
 	}
 	outing.close();
+
+
+	pathing = "Data\\SKSE\\Plugins\\AlchemyExpansion\\effects_ALCH_DIST.ini";
+	std::filesystem::create_directories(std::filesystem::path(pathing).parent_path());
+	outing = std::ofstream(pathing, std::ofstream::out);
+	
+	std::map<RE::FormID, RE::EffectSetting*> effectMap;
+	for (auto& ing : ingredienteffectmap) {
+		for (int i = 0; i < ing->magicEffects.size(); i++)
+		{
+			if (ing->magicEffects[i] != nullptr)
+			{
+				effectMap.insert_or_assign(ing->magicEffects[i]->GetFormID(), ing->magicEffects[i]);
+			}
+		}
+	}
+	for (auto& [id, effect] : effectMap)
+	{
+		outing
+			<< "1"
+			<< "|1001"
+			<< "|<"
+			<< Utility::GetHex(Utility::Mods::GetIndexLessFormID(effect))
+			<< ","
+			<< Utility::Mods::GetPluginNameFromID(id)
+			<< ">"
+			<< "|" << effect->GetFullName()
+			<< "|" << GetFormEditorID(effect)
+			<< "|" << static_cast<int>(effect->data.primaryAV)
+			<< "|" << 0
+			<< "|" << ConvertToAlchemyEffect(effect->data.primaryAV).string()
+			<< "|" << (int)effect->IsDetrimental()
+			<< "\n";
+	}
+
+	outing.close();
 }
 
-std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::ClassifyItem(RE::AlchemyItem* item)
+std::tuple<AlchemicEffect, ItemStrength, ItemType, int, float, bool> Settings::ClassifyItem(RE::AlchemyItem* item)
 {
 	RE::EffectSetting* sett = nullptr;
 	if ((item->avEffectSetting) == nullptr && item->effects.size() == 0) {
 		return { 0, ItemStrength::kStandard, ItemType::kFood, 0, 0.0f, false};
 	}
 	// we look at max 4 effects
-	AlchemyEffectBase av[4]{
+	AlchemicEffect av[4]{
 		0,
 		0,
 		0,
@@ -879,7 +949,7 @@ std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::Classif
 	bool positive = false;
 	// we will not abort the loop, since the number of effects on one item is normally very
 	// limited, so we don't have much iterations
-	AlchemyEffectBase tmp = 0;
+	AlchemicEffect tmp = 0;
 	if (item->effects.size() > 0) {
 		for (uint32_t i = 0; i < item->effects.size() && i < 4; i++) {
 			sett = item->effects[i]->baseEffect;
@@ -891,11 +961,11 @@ std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::Classif
 				positive |= !sett->IsDetrimental();
 
 				uint32_t formid = sett->GetFormID();
-				if ((tmp = (static_cast<uint64_t>(ConvertToAlchemyEffectPrimary(sett)))) > 0) {
+				if ((tmp = ConvertToAlchemyEffectPrimary(sett)) > 0) {
 
 					av[i] |= tmp;
 				}
-				if (sett->data.archetype == RE::EffectArchetypes::ArchetypeID::kDualValueModifier && (tmp = ((static_cast<uint64_t>(ConvertToAlchemyEffectSecondary(sett))))) > 0) {
+				if (sett->data.archetype == RE::EffectArchetypes::ArchetypeID::kDualValueModifier && (tmp = ConvertToAlchemyEffectSecondary(sett)) > 0) {
 
 					av[i] |= tmp;
 				}
@@ -912,37 +982,38 @@ std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::Classif
 		positive |= !item->avEffectSetting->IsDetrimental();
 		switch (item->avEffectSetting->data.primaryAV) {
 		case RE::ActorValue::kHealth:
-			av[0] = static_cast<uint64_t>(ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV));
+			av[0] = ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV);
 			mag[0] = err.magnitude;
 			dur[0] = 1;
 			break;
 		case RE::ActorValue::kMagicka:
-			av[0] = static_cast<uint64_t>(ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV));
+			av[0] = ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV);
 			mag[0] = err.magnitude;
 			dur[0] = 1;
 			break;
 		case RE::ActorValue::kStamina:
-			av[0] = static_cast<uint64_t>(ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV));
+			av[0] = ConvertToAlchemyEffect(item->avEffectSetting->data.primaryAV);
 			mag[0] = err.magnitude;
 			dur[0] = 1;
 			break;
 		}
 	}
 	// analyze the effect types
-	AlchemyEffectBase alch = 0;
+	AlchemicEffect alch = 0;
 	ItemStrength str = ItemStrength::kWeak;
 	float maxmag = 0;
 	int maxdur = 0;
 	for (int i = 0; i < 4; i++) {
-		if ((av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kHealth)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kMagicka)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kStamina)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kHealRate)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kMagickaRate)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kStaminaRate)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kHealRateMult)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kMagickaRateMult)) > 0 ||
-			(av[i] & static_cast<AlchemyEffectBase>(AlchemyEffect::kStaminaRateMult)) > 0) {
+		if ((av[i] & AlchemicEffect::kHealth) > 0 ||
+			(av[i] & AlchemicEffect::kMagicka) > 0 ||
+			(av[i] & AlchemicEffect::kStamina) > 0 ||
+			(av[i] & AlchemicEffect::kHealRate) > 0 ||
+			(av[i] & AlchemicEffect::kMagickaRate) > 0 ||
+			(av[i] & AlchemicEffect::kStaminaRate) > 0 ||
+			(av[i] & AlchemicEffect::kHealRateMult) > 0 ||
+			(av[i] & AlchemicEffect::kMagickaRateMult) > 0 ||
+			(av[i] & AlchemicEffect::kStaminaRateMult) > 0)
+			{
 			if (mag[i] * dur[i] > maxmag) {
 				maxmag = mag[i] * dur[i];
 				maxdur = dur[i];
@@ -971,7 +1042,7 @@ std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::Classif
 	// effects are overriden to AlchemyEffect::kBlood
 	if (std::string(item->GetName()).find(std::string("Blood")) != std::string::npos &&
 		std::string(item->GetName()).find(std::string("Potion")) != std::string::npos) {
-		alch = static_cast<uint64_t>(AlchemyEffect::kBlood);
+		alch = AlchemicEffect::kBlood;
 	}
 
 	ItemType type = ItemType::kPotion;
@@ -1001,34 +1072,34 @@ std::tuple<uint64_t, ItemStrength, ItemType, int, float, bool> Settings::Classif
 
 void Settings::CleanAlchemyEffects()
 {
-	std::vector<AlchemyEffect> effectsToRemovePotion;
-	std::vector<AlchemyEffect> effectsToRemovePoison;
-	std::vector<AlchemyEffect> effectsToRemoveFood;
+	std::vector<AlchemicEffect> effectsToRemovePotion;
+	std::vector<AlchemicEffect> effectsToRemovePoison;
+	std::vector<AlchemicEffect> effectsToRemoveFood;
 	// iterate over existing alchemy effects
 	for (uint64_t i = 0; i <= 63; i++) {
 		// potion
-		if (_potionEffectsFound & ((AlchemyEffectBase)1 << i)) {
+		if ((_potionEffectsFound & (AlchemicEffect(0, 1) << i)).IsValid()) {
 			// found existing effect, which is not excluded
 		} else {
 			// effect excluded or not present in any items
 			// remove from all distribution rules
-			effectsToRemovePotion.push_back(static_cast<AlchemyEffect>((AlchemyEffectBase)1 << i));
+			effectsToRemovePotion.push_back(AlchemicEffect(0, 1) << i);
 		}
 		// poison
-		if (_poisonEffectsFound & ((AlchemyEffectBase)1 << i)) {
+		if ((_poisonEffectsFound & (AlchemicEffect(0, 1) << i)).IsValid()) {
 			// found existing effect, which is not excluded
 		} else {
 			// effect excluded or not present in any items
 			// remove from all distribution rules
-			effectsToRemovePoison.push_back(static_cast<AlchemyEffect>((AlchemyEffectBase)1 << i));
+			effectsToRemovePoison.push_back(AlchemicEffect(0, 1) << i);
 		}
 		// food
-		if (_foodEffectsFound & ((AlchemyEffectBase)1 << i)) {
+		if ((_foodEffectsFound & (AlchemicEffect(0, 1 << i))).IsValid()) {
 			// found existing effect, which is not excluded
 		} else {
 			// effect excluded or not present in any items
 			// remove from all distribution rules
-			effectsToRemoveFood.push_back(static_cast<AlchemyEffect>((AlchemyEffectBase)1 << i));
+			effectsToRemoveFood.push_back(AlchemicEffect(0, 1) << i);
 		}
 	}
 }

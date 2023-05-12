@@ -22,8 +22,6 @@
 		
 namespace Events
 {
-	using AlchemyEffect = AlchemyEffect;
-
 	/// <summary>
 	/// random number generator for processing probabilities
 	/// </summary>

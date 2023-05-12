@@ -9,6 +9,7 @@ set(SOURCE_FILES
 	"${SOURCE_DIR}/Settings.cpp"
 	"${SOURCE_DIR}/SettingsLoadSave.cpp"
 	"${SOURCE_DIR}/Game.cpp"
+	"${SOURCE_DIR}/Hooks.cpp"
 	"${SOURCE_DIR}/Utility.cpp"
 	"${SOURCE_DIR}/AlchemyEffect.cpp"
 	"${SOURCE_DIR}/PCH.h"

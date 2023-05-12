@@ -8,7 +8,7 @@ public:
 	std::string editorID = "";
 	std::string pluginName = "";
 	RE::ActorValue actorValue = RE::ActorValue::kNone;
-	AlchemyEffect alchemyEffect = AlchemyEffect::kNone;
+	AlchemicEffect alchemyEffect = AlchemicEffect::kNone;
 	bool overwrite = false;
 	bool detrimental = false;
 
