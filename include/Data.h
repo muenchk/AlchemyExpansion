@@ -45,6 +45,16 @@ private:
 	/// </summary>
 	std::unordered_map<RE::FormID, Potion*> potionMap;
 
+	/// <summary>
+	/// map that contains all name overrides for potions and ingredients
+	/// </summary>
+	std::unordered_map<RE::FormID, std::string> nameMap;
+
+	/// <summary>
+	/// map that contains all duration overrides for effects
+	/// </summary>
+	std::unordered_map<RE::FormID, int> effectDurationOverride;
+
 public:
 	/// <summary>
 	/// Initializes data.
@@ -125,6 +135,16 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	std::unordered_map<RE::FormID, Potion*>* GetPotionMap() { return &potionMap; }
+	/// <summary>
+	/// Returns the map that stores all name overrides
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<RE::FormID, std::string>* GetNameMap() { return &nameMap; }
+	/// <summary>
+	/// Returns the map that stores all name overrides
+	/// </summary>
+	/// <returns></returns>
+	std::unordered_map<RE::FormID, int>* GetEffectDurationOverride() { return &effectDurationOverride; }
 
 
 	void PatchGameData();

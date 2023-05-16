@@ -553,6 +553,9 @@ AlchemicEffect AlchemicEffect::ShiftLeft(const uint64_t& shift) const
 		// we are shifting second into first
 		alc.first = second;
 		alc.second = 0;
+	} else if (shift == 0) {
+		alc.first = first;
+		alc.second = second;
 	} else {
 		// we shift less than 64 bytes, thus we need an intermediary
 		// save bytes shifted out
@@ -668,10 +671,10 @@ AlchemyBaseEffectSecond AlchemicEffect::AlchemyBaseEffectSecond()
 
 AlchemyBaseEffectFirst AlchemicEffect::AlchemyBaseEffectFirst()
 {
-	if (first > 0)
+	if (second > 0)
 		return ::AlchemyBaseEffectFirst::kNone;
 	else
-		return static_cast<::AlchemyBaseEffectFirst>(second);
+		return static_cast<::AlchemyBaseEffectFirst>(first);
 }
 
 bool AlchemicEffect::IsEffect()

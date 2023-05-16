@@ -72,6 +72,143 @@ public:
 		
 	};
 
+	struct Effects
+	{
+		enum class Identifier
+		{
+			_None = 0,
+			_MagPositiveScaleBasicIdent = 0xFFFFF00,
+			_MagPositiveScaleBasicRareIdent = 0xFFFFF01,
+			_MagPositiveScaleBasicTimeIdent = 0xFFFFF02,
+			_MagPositiveScaleTimeIdent = 0xFFFFF03,
+			_MagPositiveScaleTimeRareIdent = 0xFFFFF04,
+			_MagPositiveScaleTimeEpicIdent = 0xFFFFF05,
+			_MagNegativeScaleBasicIdent = 0xFFFFF06,
+			_MagNegativeScaleBasicRareIdent = 0xFFFFF07,
+			_MagNegativeScaleBasicTimeIdent = 0xFFFFF08,
+			_MagNegativeScaleTimeIdent = 0xFFFFF09,
+			_MagNegativeScaleTimeRareIdent = 0xFFFFF0A,
+			_MagNegativeScaleTimeEpicIdent = 0xFFFFF0B,
+			_DurPositiveBasicIdent = 0xFFFFF0C,
+			_DurPositiveBasicTimeIdent = 0xFFFFF0D,
+			_DurPositiveTimeIdent = 0xFFFFF0E,
+			_DurPositiveTimeAltIdent = 0xFFFFF17,
+			_DurPositiveTimeRareIdent = 0xFFFFF0F,
+			_DurPositiveTimeEpicIdent = 0xFFFFF10,
+			_DurNegativeBasicIdent = 0xFFFFF11,
+			_DurNegativeBasicTimeIdent = 0xFFFFF12,
+			_DurNegativeTimeIdent = 0xFFFFF13,
+			_DurNegativeTimeAltIdent = 0xFFFFF16,
+			_DurNegativeTimeRareIdent = 0xFFFFF14,
+			_DurNegativeTimeEpicIdent = 0xFFFFF15,
+
+			// max : 0xFFFFF17
+		};
+
+		/// <summary>
+		/// Magnitude scale factor for positive basic effects (e.g. Restore Health)
+		/// </summary>
+		static inline float _MagPositiveScaleBasic = 1.0;
+		/// <summary>
+		/// Magnitude scale factor for rare positive basic effects (e.g. stronger Restore Health)
+		/// </summary>
+		static inline float _MagPositiveScaleBasicRare = 1.0;
+		/// <summary>
+		/// Magnitude scale factor for positive basic effects over time (e.g. Regenerate Health)
+		/// </summary>
+		static inline float _MagPositiveScaleBasicTime = 1.0;
+		/// <summary>
+		/// Magnitude scale factor for positive long-term effects (e.g. Fortify Block)
+		/// </summary>
+		static inline float _MagPositiveScaleTime = 1.0;
+		/// <summary>
+		/// Magnitude scale factor for rare positive long-term effects (e.g. Quick Drawing)
+		/// </summary>
+		static inline float _MagPositiveScaleTimeRare = 1.0;
+		/// <summary>
+		/// Magnitude scale factor for epic positive long-term effects (e.g. Reflect Damage)
+		/// </summary>
+		static inline float _MagPositiveScaleTimeEpic = 1.0;
+
+		/// <summary>
+		/// Magnitude scale for basic negative effects (e.g. Damage Health)
+		/// </summary>
+		static inline float _MagNegativeScaleBasic = 1.0;
+		/// <summary>
+		/// Magnitude scale for basic negative effects (e.g. Ravage Health)
+		/// </summary>
+		static inline float _MagNegativeScaleBasicRare = 1.0;
+		/// <summary>
+		/// Magnitude scale for basic negative effects (e.g. Lingering Damage Health)
+		/// </summary>
+		static inline float _MagNegativeScaleBasicTime = 1.0;
+		/// <summary>
+		/// Magnitude scale for negative long-term effects (e.g. Damage Block)
+		/// </summary>
+		static inline float _MagNegativeScaleTime = 1.0;
+		/// <summary>
+		/// Magnitude scale for rare negative long-term effects (e.g. Frailty)
+		/// </summary>
+		static inline float _MagNegativeScaleTimeRare = 1.0;
+		/// <summary>
+		/// Magnitude scale for epic negative long-term effects (e.g. )
+		/// </summary>
+		static inline float _MagNegativeScaleTimeEpic = 1.0;
+
+		/// <summary>
+		/// Duration for basic positive effects (e.g. Restore Health)
+		/// </summary>
+		static inline float _DurPositiveBasic = 10;
+		/// <summary>
+		/// Duration for basic positive effects over time (e.g. Regenerate Health)
+		/// </summary>
+		static inline float _DurPositiveBasicTime = 20;
+		/// <summary>
+		/// Duration for positive long-term effects (e.g. Fortify Block)
+		/// </summary>
+		static inline float _DurPositiveTime = 60;
+		/// <summary>
+		/// Duration for alternative positive long-term effects (e.g. Fortify Health Regeneration)
+		/// </summary>
+		static inline float _DurPositiveTimeAlt = 300;
+		/// <summary>
+		/// Duration for Rare positive long-term effects (e.g. Quick Drawing)
+		/// </summary>
+		static inline float _DurPositiveTimeRare = 40;
+		/// <summary>
+		/// Duration for Epic positive long-term effects (e.g. Reflect Damage)
+		/// </summary>
+		static inline float _DurPositiveTimeEpic = 30;
+
+		/// <summary>
+		/// Duration for basic negative effects (e.g. Damage Health)
+		/// </summary>
+		static inline float _DurNegativeBasic = 5;
+		/// <summary>
+		/// Duration for basic negative effects (e.g. Lingering Damage Health)
+		/// </summary>
+		static inline float _DurNegativeBasicTime = 20;
+		/// <summary>
+		/// Duration for negative long-term effects (e.g. Damage Block)
+		/// </summary>
+		static inline float _DurNegativeTime = 60;
+		/// <summary>
+		/// Duration for alternative negative long-term effects (e.g. Reduce Health Regen)
+		/// </summary>
+		static inline float _DurNegativeTimeAlt = 300;
+		/// <summary>
+		/// Duration for rare negative long-term effects (e.g. Frailty)
+		/// </summary>
+		static inline float _DurNegativeTimeRare = 40;
+		/// <summary>
+		/// Duration for epic negative long-term effects (e.g. )
+		/// </summary>
+		static inline float _DurNegativeTimeEpic = 30;
+
+		static Identifier GetType(int value);
+		static float GetValue(Identifier ident);
+	};
+
 	struct Distr
 	{
 		static inline int _MaxMagnitudeWeak;

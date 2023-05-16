@@ -130,9 +130,36 @@ void Data::PatchGameData()
 					LOG_2("Couldn't find magic effect");
 					continue;
 				}
+
+				float magnitude = ing->magnitudes[i];
+				int duration = ing->durations[i];
+				// adapt magnitude
+				Settings::Effects::Identifier ident = Settings::Effects::GetType((int)magnitude);
+				if (ident != Settings::Effects::Identifier::_None)
+					magnitude *= Settings::Effects::GetValue(ident);
+				// adapt duration
+				auto itr = GetEffectDurationOverride()->find(ing->magicEffects[i]->GetFormID());
+				if (itr != GetEffectDurationOverride()->end())
+				{
+					ident = Settings::Effects::GetType(itr->second);
+				} else {
+					ident = Settings::Effects::GetType(duration);
+				}
+				if (ident != Settings::Effects::Identifier::_None) {
+					if (duration == 0)
+						duration = 1;
+					float maxmag = magnitude * duration;
+					duration = (int)Settings::Effects::GetValue(ident);
+					if (ident == Settings::Effects::Identifier::_DurPositiveBasicIdent ||
+						ident == Settings::Effects::Identifier::_DurPositiveBasicTimeIdent ||
+						ident == Settings::Effects::Identifier::_DurNegativeBasicIdent ||
+						ident == Settings::Effects::Identifier::_DurNegativeBasicTimeIdent)
+						magnitude = maxmag / (float)duration;
+				}
+
 				auto effect = new RE::Effect();
-				effect->effectItem.magnitude = ing->magnitudes[i];
-				effect->effectItem.duration = ing->durations[i];
+				effect->effectItem.magnitude = magnitude;
+				effect->effectItem.duration = duration;
 				effect->effectItem.area = 0;
 				effect->baseEffect = ing->magicEffects[i];
 				effect->cost = 1;
@@ -141,7 +168,7 @@ void Data::PatchGameData()
 		}
 	}
 	// potionMap
-	LOG1_1("{}[Data] [PatchGameData] Ingredients {}", potionMap.size());
+	LOG1_1("{}[Data] [PatchGameData] Potions {}", potionMap.size());
 	for (auto& [id, pot] : potionMap) {
 		// check that item is valid
 		if (pot->item) {
@@ -158,9 +185,35 @@ void Data::PatchGameData()
 					LOG_2("Couldn't find magic effect");
 					continue;
 				}
+
+				float magnitude = pot->magnitudes[i];
+				int duration = pot->durations[i];
+				// adapt magnitude
+				Settings::Effects::Identifier ident = Settings::Effects::GetType((int)magnitude);
+				if (ident != Settings::Effects::Identifier::_None)
+					magnitude *= Settings::Effects::GetValue(ident);
+				// adapt duration
+				auto itr = GetEffectDurationOverride()->find(pot->magicEffects[i]->GetFormID());
+				if (itr != GetEffectDurationOverride()->end()) {
+					ident = Settings::Effects::GetType(itr->second);
+				} else {
+					ident = Settings::Effects::GetType(duration);
+				}
+				if (ident != Settings::Effects::Identifier::_None) {
+					if (duration == 0)
+						duration = 1;
+					float maxmag = magnitude * duration;
+					duration = (int)Settings::Effects::GetValue(ident);
+					if (ident == Settings::Effects::Identifier::_DurPositiveBasicIdent ||
+						ident == Settings::Effects::Identifier::_DurPositiveBasicTimeIdent ||
+						ident == Settings::Effects::Identifier::_DurNegativeBasicIdent ||
+						ident == Settings::Effects::Identifier::_DurNegativeBasicTimeIdent)
+						magnitude = maxmag / (float)duration;
+				}
+
 				auto effect = new RE::Effect();
-				effect->effectItem.magnitude = pot->magnitudes[i];
-				effect->effectItem.duration = pot->durations[i];
+				effect->effectItem.magnitude = magnitude;
+				effect->effectItem.duration = duration;
 				effect->effectItem.area = 0;
 				effect->baseEffect = pot->magicEffects[i];
 				effect->cost = 1;

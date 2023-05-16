@@ -209,7 +209,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 
 	
     SKSE::Init(a_skse);
-	SKSE::AllocTrampoline(1 << 10);
+	SKSE::AllocTrampoline(1 << 7);
 
 
 	auto messaging = SKSE::GetMessagingInterface();
