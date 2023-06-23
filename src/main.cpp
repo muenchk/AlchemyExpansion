@@ -230,7 +230,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	// register papyrus functions
 	SKSE::GetPapyrusInterface()->Register(Papyrus::Register);
 
-	//Hooks::Install();
+	Hooks::Install();
 
 	return true;
 }

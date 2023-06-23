@@ -6,6 +6,7 @@
     "rsm-binary-io",
     "spdlog",
     "rapidcsv",
-    "catch2"
+    "catch2",
+    "xbyak"
   ]
 }
